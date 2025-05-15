@@ -1,6 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from "vue";
-import SingleOtpInput from "./single-otp-input.vue";
+  import { ref, watch } from 'vue';
 
 // keyCode constants
 const BACKSPACE = 8;
@@ -64,12 +63,15 @@ watch(
   { immediate: true }
 );
 
-const handleOnFocus = (index: number) => {
-  activeInput.value = index;
-};
-const handleOnBlur = () => {
-  activeInput.value = -1;
-};
+  const handleOnFocus = (index: number) => {
+    activeInput.value = index;
+  };
+  const handleOnBlur = () => {
+    // Don't reset activeInput if we're at the last input
+    if (activeInput.value !== props.numInputs - 1) {
+      activeInput.value = -1;
+    }
+  };
 
 // Helper to return OTP from input
 const checkFilledAllInputs = () => {
@@ -135,18 +137,21 @@ const handleOnPaste = (event: any) => {
   return checkFilledAllInputs();
 };
 
-const handleOnChange = (value: number | string) => {
-  changeCodeAtFocus(value);
-  focusNextInput();
-};
-const clearInput = () => {
-  if (otp.value.length > 0) {
-    emit("update:value", "");
-    emit("on-change", "");
-  }
-  otp.value = [];
-  activeInput.value = 0;
-};
+  const handleOnChange = (value: number | string) => {
+    changeCodeAtFocus(value);
+    // Only move to next input if we're not at the last input
+    if (activeInput.value < props.numInputs - 1) {
+      focusNextInput();
+    }
+  };
+  const clearInput = () => {
+    if (otp.value.length > 0) {
+      emit('update:value', '');
+      emit('on-change', '');
+    }
+    otp.value = [];
+    activeInput.value = 0;
+  };
 
 const fillInput = (value: string) => {
   const fill = value.split("");
