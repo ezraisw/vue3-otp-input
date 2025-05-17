@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-  import { ref, watch } from 'vue';
+import { ref, watch } from 'vue';
+import SingleOtpInput from './single-otp-input.vue';
 
 // keyCode constants
 const BACKSPACE = 8;
@@ -13,16 +14,16 @@ type Props = {
   separator?: string;
   inputClasses?: string | string[];
   conditionalClass?: string[];
-  inputType?: "number" | "tel" | "letter-numeric" | "password";
+  inputType?: 'number' | 'tel' | 'letter-numeric' | 'password';
   inputmode?:
-    | "none"
-    | "text"
-    | "tel"
-    | "url"
-    | "email"
-    | "numeric"
-    | "decimal"
-    | "search";
+    | 'none'
+    | 'text'
+    | 'tel'
+    | 'url'
+    | 'email'
+    | 'numeric'
+    | 'decimal'
+    | 'search';
   shouldAutoFocus?: boolean;
   placeholder?: string[];
   isDisabled?: boolean;
@@ -30,11 +31,11 @@ type Props = {
 };
 
 const props = withDefaults(defineProps<Props>(), {
-  value: "",
+  value: '',
   numInputs: 4,
-  separator: "",
-  inputClasses: "",
-  inputmode: "text",
+  separator: '',
+  inputClasses: '',
+  inputmode: 'text',
   shouldAutoFocus: false,
   isDisabled: false,
   placeholder: () => [],
@@ -42,9 +43,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (e: "update:value", value: string): void;
-  (e: "on-change", value: string): void;
-  (e: "on-complete", value: string): void;
+  (e: 'update:value', value: string): void;
+  (e: 'on-change', value: string): void;
+  (e: 'on-complete', value: string): void;
 }>();
 
 const activeInput = ref<number>(0);
@@ -56,30 +57,30 @@ watch(
   (val) => {
     // fix issue: https://github.com/ejirocodes/vue3-otp-input/issues/34
     if (val.length === props.numInputs || otp.value.length === 0) {
-      const fill = val.split("");
+      const fill = val.split('');
       otp.value = fill;
     }
   },
   { immediate: true }
 );
 
-  const handleOnFocus = (index: number) => {
-    activeInput.value = index;
-  };
-  const handleOnBlur = () => {
-    // Don't reset activeInput if we're at the last input
-    if (activeInput.value !== props.numInputs - 1) {
-      activeInput.value = -1;
-    }
-  };
+const handleOnFocus = (index: number) => {
+  activeInput.value = index;
+};
+const handleOnBlur = () => {
+  // Don't reset activeInput if we're at the last input
+  if (activeInput.value !== props.numInputs - 1) {
+    activeInput.value = -1;
+  }
+};
 
 // Helper to return OTP from input
 const checkFilledAllInputs = () => {
-  if (otp.value.join("").length === props.numInputs) {
-    emit("update:value", otp.value.join(""));
-    return emit("on-complete", otp.value.join(""));
+  if (otp.value.join('').length === props.numInputs) {
+    emit('update:value', otp.value.join(''));
+    return emit('on-complete', otp.value.join(''));
   }
-  return "Wait until the user enters the required number of characters";
+  return 'Wait until the user enters the required number of characters';
 };
 
 // Focus on input by index
@@ -101,9 +102,9 @@ const changeCodeAtFocus = (value: number | string) => {
 
   otp.value[activeInput.value] = value.toString();
 
-  if (oldOtp.value.join("") !== otp.value.join("")) {
-    emit("update:value", otp.value.join(""));
-    emit("on-change", otp.value.join(""));
+  if (oldOtp.value.join('') !== otp.value.join('')) {
+    emit('update:value', otp.value.join(''));
+    emit('on-change', otp.value.join(''));
     checkFilledAllInputs();
   }
 };
@@ -112,18 +113,18 @@ const changeCodeAtFocus = (value: number | string) => {
 const handleOnPaste = (event: any) => {
   event.preventDefault();
   const pastedData = event.clipboardData
-    .getData("text/plain")
+    .getData('text/plain')
     .slice(0, props.numInputs - activeInput.value)
-    .split("");
-  if (props.inputType === "number" && !pastedData.join("").match(/^\d+$/)) {
-    return "Invalid pasted data";
+    .split('');
+  if (props.inputType === 'number' && !pastedData.join('').match(/^\d+$/)) {
+    return 'Invalid pasted data';
   }
 
   if (
-    props.inputType === "letter-numeric" &&
-    !pastedData.join("").match(/^\w+$/)
+    props.inputType === 'letter-numeric' &&
+    !pastedData.join('').match(/^\w+$/)
   ) {
-    return "Invalid pasted data";
+    return 'Invalid pasted data';
   }
   // Paste data from focused input onwards
   const currentCharsInOtp = otp.value.slice(0, activeInput.value);
@@ -137,28 +138,28 @@ const handleOnPaste = (event: any) => {
   return checkFilledAllInputs();
 };
 
-  const handleOnChange = (value: number | string) => {
-    changeCodeAtFocus(value);
-    // Only move to next input if we're not at the last input
-    if (activeInput.value < props.numInputs - 1) {
-      focusNextInput();
-    }
-  };
-  const clearInput = () => {
-    if (otp.value.length > 0) {
-      emit('update:value', '');
-      emit('on-change', '');
-    }
-    otp.value = [];
-    activeInput.value = 0;
-  };
+const handleOnChange = (value: number | string) => {
+  changeCodeAtFocus(value);
+  // Only move to next input if we're not at the last input
+  if (activeInput.value < props.numInputs - 1) {
+    focusNextInput();
+  }
+};
+const clearInput = () => {
+  if (otp.value.length > 0) {
+    emit('update:value', '');
+    emit('on-change', '');
+  }
+  otp.value = [];
+  activeInput.value = 0;
+};
 
 const fillInput = (value: string) => {
-  const fill = value.split("");
+  const fill = value.split('');
   if (fill.length === props.numInputs) {
     otp.value = fill;
-    emit("update:value", otp.value.join(""));
-    emit("on-complete", otp.value.join(""));
+    emit('update:value', otp.value.join(''));
+    emit('on-complete', otp.value.join(''));
   }
 };
 
@@ -167,12 +168,12 @@ const handleOnKeyDown = (event: KeyboardEvent, index: number) => {
   switch (event.keyCode) {
     case BACKSPACE:
       event.preventDefault();
-      changeCodeAtFocus("");
+      changeCodeAtFocus('');
       focusPrevInput();
       break;
     case DELETE:
       event.preventDefault();
-      changeCodeAtFocus("");
+      changeCodeAtFocus('');
       break;
     case LEFT_ARROW:
       event.preventDefault();
@@ -200,10 +201,10 @@ const handleOnKeyDown = (event: KeyboardEvent, index: number) => {
 const focusOrder = (currentIndex: number) => {
   if (props.shouldFocusOrder) {
     setTimeout(() => {
-      const len = otp.value.join("").length;
+      const len = otp.value.join('').length;
       if (currentIndex - len >= 0) {
         activeInput.value = len;
-        otp.value[currentIndex] = "";
+        otp.value[currentIndex] = '';
       }
     }, 100);
   }
