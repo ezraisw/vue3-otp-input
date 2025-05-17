@@ -69,29 +69,29 @@ const isCodeNumeric = (charCode: number) =>
   (charCode >= 48 && charCode <= 57) || (charCode >= 96 && charCode <= 105);
 // numeric keys and numpad keys
 
-  const handleOnKeyDown = (event: KeyboardEvent) => {
-    if (props.isDisabled) {
-      event.preventDefault();
-    }
-    // Only allow characters 0-9, DEL, Backspace, Enter, Right and Left Arrows, and Pasting
-    const keyEvent = event || window.event;
-    const charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
-    // Allow any input on iOS
-    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-      emit('on-keydown', event);
-      return;
-    }
+const handleOnKeyDown = (event: KeyboardEvent) => {
+  if (props.isDisabled) {
+    event.preventDefault();
+  }
+  // Only allow characters 0-9, DEL, Backspace, Enter, Right and Left Arrows, and Pasting
+  const keyEvent = event || window.event;
+  const charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
+  // Allow any input on iOS
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    emit("on-keydown", event);
+    return;
+  }
 
-    if (
-      isCodeNumeric(charCode) ||
-      (props.inputType === 'letter-numeric' && isCodeLetter(charCode)) ||
-      [8, 9, 13, 37, 39, 46, 86].includes(charCode)
-    ) {
-      emit('on-keydown', event);
-    } else {
-      keyEvent.preventDefault();
-    }
-  };
+  if (
+    isCodeNumeric(charCode) ||
+    (props.inputType === "letter-numeric" && isCodeLetter(charCode)) ||
+    [8, 9, 13, 37, 39, 46, 86].includes(charCode)
+  ) {
+    emit("on-keydown", event);
+  } else {
+    keyEvent.preventDefault();
+  }
+};
 
 const handleOnPaste = (event: ClipboardEvent) => emit("on-paste", event);
 
