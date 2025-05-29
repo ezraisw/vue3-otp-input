@@ -68,7 +68,10 @@ const handleOnFocus = (index: number) => {
   activeInput.value = index;
 };
 const handleOnBlur = () => {
-  activeInput.value = -1;
+  // Don't reset activeInput if we're at the last input
+  if (activeInput.value !== props.numInputs - 1) {
+    activeInput.value = -1;
+  }
 };
 
 // Helper to return OTP from input
@@ -137,7 +140,10 @@ const handleOnPaste = (event: any) => {
 
 const handleOnChange = (value: number | string) => {
   changeCodeAtFocus(value);
-  focusNextInput();
+  // Only move to next input if we're not at the last input
+  if (activeInput.value < props.numInputs - 1) {
+    focusNextInput();
+  }
 };
 const clearInput = () => {
   if (otp.value.length > 0) {
