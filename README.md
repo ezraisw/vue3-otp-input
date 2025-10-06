@@ -2,6 +2,12 @@
 
 > Vue 3 OTP Input is a 5.0 KB fully customizable OTP (one-time password) input component for OTPs, transaction pins, and passwords built with Vue 3.x and Vue Composition API..
 
+
+## Documentation
+
+<a href="https://deepwiki.com/ejirocodes/vue3-otp-input" target="_blank">Link to doc</a>
+
+
 ## 📹 Demo
 
 ![Gifphy](https://media.giphy.com/media/Db04PkC7vMzqksOpq6/giphy.gif)
