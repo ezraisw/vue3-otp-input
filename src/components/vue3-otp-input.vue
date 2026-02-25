@@ -9,7 +9,6 @@ const RIGHT_ARROW = 39;
 const DELETE = 46;
 
 type Props = {
-  value: string;
   numInputs?: number;
   separator?: string;
   inputClasses?: string | string[];
@@ -31,7 +30,6 @@ type Props = {
 };
 
 const props = withDefaults(defineProps<Props>(), {
-  value: "",
   numInputs: 4,
   separator: "",
   inputClasses: "",
@@ -43,26 +41,46 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (e: "update:value", value: string): void;
   (e: "on-change", value: string): void;
   (e: "on-complete", value: string): void;
 }>();
 
-const activeInput = ref<number>(0);
-const otp = ref<string[]>([]);
-const oldOtp = ref<string[]>([]);
+const otp = defineModel<string>("value", { default: "" });
 
-watch(
-  () => props.value,
-  (val) => {
-    // fix issue: https://github.com/ejirocodes/vue3-otp-input/issues/34
-    if (val.length === props.numInputs || otp.value.length === 0) {
-      const fill = val.split("");
-      otp.value = fill;
-    }
-  },
-  { immediate: true }
-);
+/**
+ * This represents the currently active input index.
+ * It can be decoupled from the length of the current value because users
+ * might choose to change from a specific index.
+ */
+const activeInput = ref<number>(0);
+
+watch(otp, (value, oldValue) => {
+  if (value === oldValue) {
+    return;
+  }
+
+  if (value === "") {
+    activeInput.value = 0;
+  }
+
+  emit("on-change", value);
+
+  if (value.length === props.numInputs) {
+    emit("on-complete", value);
+  }
+}, {
+  immediate: true,
+});
+
+const setOtpAt = (index: number, value: string) => {
+  if (index < 0) {
+    return;
+  }
+  // Immutable string edit
+  let newValue = otp.value.substring(0, index) + value + otp.value.substring(index + 1);
+  newValue = newValue.trim();
+  otp.value = newValue;
+};
 
 const handleOnFocus = (index: number) => {
   activeInput.value = index;
@@ -72,15 +90,6 @@ const handleOnBlur = () => {
   if (activeInput.value !== props.numInputs - 1) {
     activeInput.value = -1;
   }
-};
-
-// Helper to return OTP from input
-const checkFilledAllInputs = () => {
-  if (otp.value.join("").length === props.numInputs) {
-    emit("update:value", otp.value.join(""));
-    return emit("on-complete", otp.value.join(""));
-  }
-  return "Wait until the user enters the required number of characters";
 };
 
 // Focus on input by index
@@ -98,44 +107,37 @@ const focusPrevInput = () => {
 
 // Change OTP value at focused input
 const changeCodeAtFocus = (value: number | string) => {
-  oldOtp.value = Object.assign([], otp.value);
-
-  otp.value[activeInput.value] = value.toString();
-
-  if (oldOtp.value.join("") !== otp.value.join("")) {
-    emit("update:value", otp.value.join(""));
-    emit("on-change", otp.value.join(""));
-    checkFilledAllInputs();
-  }
+  setOtpAt(activeInput.value, value.toString());
 };
 
 // Handle pasted OTP
-const handleOnPaste = (event: any) => {
+const handleOnPaste = (event: ClipboardEvent) => {
   event.preventDefault();
+
+  // Clamp the pasted data length to at most the number of inputs
   const pastedData = event.clipboardData
-    .getData("text/plain")
-    .slice(0, props.numInputs - activeInput.value)
-    .split("");
-  if (props.inputType === "number" && !pastedData.join("").match(/^\d+$/)) {
+    ?.getData("text/plain")
+    .slice(0, props.numInputs - activeInput.value);
+
+  if (pastedData === undefined) {
     return "Invalid pasted data";
   }
 
-  if (
-    props.inputType === "letter-numeric" &&
-    !pastedData.join("").match(/^\w+$/)
-  ) {
+  if (props.inputType === "number" && !pastedData.match(/^\d+$/)) {
     return "Invalid pasted data";
   }
-  // Paste data from focused input onwards
-  const currentCharsInOtp = otp.value.slice(0, activeInput.value);
-  const combinedWithPastedData = currentCharsInOtp.concat(pastedData);
 
-  combinedWithPastedData.slice(0, props.numInputs).forEach(function (value, i) {
-    otp.value[i] = value;
-  });
+  if (props.inputType === "letter-numeric" && !pastedData.match(/^\w+$/)) {
+    return "Invalid pasted data";
+  }
 
-  focusInput(combinedWithPastedData.slice(0, props.numInputs).length);
-  return checkFilledAllInputs();
+  // Paste data from focused input onwards and clamp to the number of inputs
+  const otpWithPastedData = otp.value + pastedData;
+  const slicedOtp = otpWithPastedData.slice(0, props.numInputs);
+
+  otp.value = slicedOtp;
+
+  focusInput(slicedOtp.length);
 };
 
 const handleOnChange = (value: number | string) => {
@@ -146,21 +148,11 @@ const handleOnChange = (value: number | string) => {
   }
 };
 const clearInput = () => {
-  if (otp.value.length > 0) {
-    emit("update:value", "");
-    emit("on-change", "");
-  }
-  otp.value = [];
-  activeInput.value = 0;
+  otp.value = "";
 };
 
 const fillInput = (value: string) => {
-  const fill = value.split("");
-  if (fill.length === props.numInputs) {
-    otp.value = fill;
-    emit("update:value", otp.value.join(""));
-    emit("on-complete", otp.value.join(""));
-  }
+  otp.value = value;
 };
 
 // Handle cases of backspace, delete, left arrow, right arrow
@@ -201,10 +193,9 @@ const handleOnKeyDown = (event: KeyboardEvent, index: number) => {
 const focusOrder = (currentIndex: number) => {
   if (props.shouldFocusOrder) {
     setTimeout(() => {
-      const len = otp.value.join("").length;
-      if (currentIndex - len >= 0) {
-        activeInput.value = len;
-        otp.value[currentIndex] = "";
+      if (currentIndex >= otp.value.length) {
+        focusInput(otp.value.length);
+        setOtpAt(currentIndex, "");
       }
     }, 100);
   }
