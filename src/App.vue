@@ -1,29 +1,25 @@
 <script setup lang="ts">
-import { ref, unref } from "vue";
-import Vue3OtpInput from ".";
+import { ref } from 'vue';
+import Vue3OtpInput from '.';
 
-const otpInput = ref<InstanceType<typeof Vue3OtpInput> | null>(null);
-const bindValue = ref("");
+const bindValue = ref<string[]>([]);
 
-const handleOnComplete = (value: string) => {
-  console.log("OTP completed: ", value);
-  console.log("OTP v-model:value: ", unref(bindValue));
+const handleComplete = (value: string) => {
+  console.log('OTP completed: ', value);
+  console.log('OTP v-model:value: ', bindValue.value);
 };
 
-const handleOnChange = (value: string) => {
-  console.log("OTP changed: ", value);
-  console.log("OTP v-model:value: ", unref(bindValue));
+const handleChange = (value: string) => {
+  console.log('OTP changed: ', value);
+  console.log('OTP v-model:value: ', bindValue.value);
 };
+
 const clear = () => {
-  if (unref(otpInput)) {
-    (unref(otpInput) as any).clearInput();
-  }
+  bindValue.value = [];
 };
 
 const fill = () => {
-  if (unref(otpInput)) {
-    unref(otpInput)?.fillInput("12ee99");
-  }
+  bindValue.value = '12ee99'.split('');
 };
 </script>
 
@@ -31,25 +27,29 @@ const fill = () => {
   <div style="display: flex; flex-direction: row">
     <button @click="clear">clear</button>
     <button @click="fill">fill</button>
-    <vue3-otp-input
+    <Vue3OtpInput
       ref="otpInput"
-      input-classes="otp-input"
-      :conditionalClass="['one', 'two', 'three', 'four']"
-      separator="-"
-      inputType="letter-numeric"
-      :num-inputs="4"
       v-model:value="bindValue"
-      :should-auto-focus="true"
-      :should-focus-order="true"
-      @on-change="handleOnChange"
-      @on-complete="handleOnComplete"
+      class="otp-input-container"
+      input-class="otp-input"
+      :conditional-class="['one', 'two', 'three', 'four']"
+      separator="-"
+      input-type="letter-numeric"
+      :count="4"
+      auto-focus
+      force-ordering
       :placeholder="['*', '*', '*', '*']"
+      @change="handleChange"
+      @complete="handleComplete"
       @update:value="bindValue = $event"
     />
   </div>
 </template>
 
 <style>
+.otp-input-container {
+  display: flex;
+}
 .otp-input {
   width: 40px;
   height: 40px;

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { ref, watch } from "vue";
-import SingleOtpInput from "./single-otp-input.vue";
+import { onMounted, ref, watchEffect } from 'vue';
+import SingleOtpInput from './single-otp-input.vue';
 
 // keyCode constants
 const BACKSPACE = 8;
@@ -9,163 +9,165 @@ const RIGHT_ARROW = 39;
 const DELETE = 46;
 
 type Props = {
-  numInputs?: number;
+  count?: number;
   separator?: string;
-  inputClasses?: string | string[];
+  inputClass?: string | string[];
   conditionalClass?: string[];
-  inputType?: "number" | "tel" | "letter-numeric" | "password";
-  inputmode?:
-    | "none"
-    | "text"
-    | "tel"
-    | "url"
-    | "email"
-    | "numeric"
-    | "decimal"
-    | "search";
-  shouldAutoFocus?: boolean;
+  inputType?: 'number' | 'tel' | 'letter-numeric' | 'password';
+  inputmode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
+  autoFocus?: boolean;
+  forceOrdering?: boolean;
   placeholder?: string[];
-  isDisabled?: boolean;
-  shouldFocusOrder?: boolean;
+  disabled?: boolean;
 };
 
 const props = withDefaults(defineProps<Props>(), {
-  numInputs: 4,
-  separator: "",
-  inputClasses: "",
-  inputmode: "text",
-  shouldAutoFocus: false,
-  isDisabled: false,
-  placeholder: () => [],
+  count: 4,
+  separator: '',
+  inputClass: '',
   conditionalClass: () => [],
+  inputType: 'letter-numeric',
+  inputmode: 'text',
+  autoFocus: false,
+  forceOrdering: false,
+  disabled: false,
+  placeholder: () => [],
 });
 
 const emit = defineEmits<{
-  (e: "on-change", value: string): void;
-  (e: "on-complete", value: string): void;
+  change: [codeStr: string];
+  complete: [codeStr: string];
 }>();
 
-const otp = defineModel<string>("value", { default: "" });
+const code = defineModel<string[]>('value', { default: [] });
 
-/**
- * This represents the currently active input index.
- * It can be decoupled from the length of the current value because users
- * might choose to change from a specific index.
- */
-const activeInput = ref<number>(0);
-
-watch(otp, (value, oldValue) => {
-  if (value === oldValue) {
-    return;
-  }
-
-  if (value === "") {
-    activeInput.value = 0;
-  }
-
-  emit("on-change", value);
-
-  if (value.length === props.numInputs) {
-    emit("on-complete", value);
-  }
-}, {
-  immediate: true,
-});
-
-const setOtpAt = (index: number, value: string) => {
+const setCodeAt = (index: number, c: string) => {
   if (index < 0) {
     return;
   }
-  // Immutable string edit
-  let newValue = otp.value.substring(0, index) + value + otp.value.substring(index + 1);
-  newValue = newValue.trim();
-  otp.value = newValue;
+  const newCode = [...code.value];
+  newCode[index] = c;
+  code.value = newCode;
 };
 
-const handleOnFocus = (index: number) => {
-  activeInput.value = index;
-};
-const handleOnBlur = () => {
-  // Don't reset activeInput if we're at the last input
-  if (activeInput.value !== props.numInputs - 1) {
-    activeInput.value = -1;
+const activeInput = ref(-1);
+
+watchEffect(() => {
+  emit('change', code.value.join(''));
+
+  // Check if every slot is filled
+  if (code.value.every((c) => !!c)) {
+    emit('complete', code.value.join(''));
   }
+});
+
+// Separate the watchEffect to keep clear dependency
+watchEffect(() => {
+  if (code.value.length === props.count) {
+    return;
+  }
+
+  // If bad code array is set
+  // Keep the array length
+  if (code.value.length < props.count) {
+    code.value = code.value.concat(...new Array<string>(props.count - code.value.length).fill(''));
+  } else {
+    code.value = code.value.slice(0, props.count);
+  }
+});
+
+onMounted(() => {
+  if (props.autoFocus) {
+    activeInput.value = 0;
+  }
+});
+
+const handleFocus = (index: number) => {
+  if (props.forceOrdering) {
+    const firstEmptyIndex = code.value.findIndex((c) => !c);
+    if (firstEmptyIndex === -1) {
+      focusInput(props.count - 1);
+    } else {
+      focusInput(firstEmptyIndex);
+    }
+  } else {
+    focusInput(index);
+  }
+};
+
+const handleBlur = () => {
+  activeInput.value = -1;
 };
 
 // Focus on input by index
 const focusInput = (input: number) => {
-  activeInput.value = Math.max(Math.min(props.numInputs - 1, input), 0);
+  activeInput.value = Math.max(Math.min(props.count - 1, input), 0);
 };
+
 // Focus on next input
 const focusNextInput = () => {
   focusInput(activeInput.value + 1);
 };
+
 // Focus on previous input
 const focusPrevInput = () => {
   focusInput(activeInput.value - 1);
 };
 
-// Change OTP value at focused input
-const changeCodeAtFocus = (value: number | string) => {
-  setOtpAt(activeInput.value, value.toString());
-};
-
 // Handle pasted OTP
-const handleOnPaste = (event: ClipboardEvent) => {
+const handlePaste = (index: number, event: ClipboardEvent) => {
   event.preventDefault();
 
-  // Clamp the pasted data length to at most the number of inputs
-  const pastedData = event.clipboardData
-    ?.getData("text/plain")
-    .slice(0, props.numInputs - activeInput.value);
-
+  // Clamp the pasted data length to at most the number of count
+  let pastedData = event.clipboardData?.getData('text/plain').substring(0, props.count - index);
   if (pastedData === undefined) {
-    return "Invalid pasted data";
+    return;
   }
 
-  if (props.inputType === "number" && !pastedData.match(/^\d+$/)) {
-    return "Invalid pasted data";
+  // Remove non-numeric or non-alphanumeric characters depending on the input type
+  switch (props.inputType) {
+    case 'number':
+      pastedData = pastedData.replace(/[^\d]/g, '');
+      break;
+    case 'letter-numeric':
+      pastedData = pastedData.replace(/[^\w]/g, '');
+      break;
   }
 
-  if (props.inputType === "letter-numeric" && !pastedData.match(/^\w+$/)) {
-    return "Invalid pasted data";
-  }
+  // Paste data from focused input onwards and clamp to the number of count
+  const codeWithPastedData = code.value.slice(0, index).concat(...pastedData.split(''));
+  const slicedOtp = codeWithPastedData.slice(0, props.count);
 
-  // Paste data from focused input onwards and clamp to the number of inputs
-  const otpWithPastedData = otp.value + pastedData;
-  const slicedOtp = otpWithPastedData.slice(0, props.numInputs);
-
-  otp.value = slicedOtp;
+  code.value = slicedOtp;
 
   focusInput(slicedOtp.length);
 };
 
-const handleOnChange = (value: number | string) => {
-  changeCodeAtFocus(value);
+const handleValueUpdate = (index: number, value: string) => {
+  setCodeAt(index, value);
   // Only move to next input if we're not at the last input
-  if (activeInput.value < props.numInputs - 1) {
+  if (activeInput.value < props.count - 1) {
     focusNextInput();
   }
 };
-const clearInput = () => {
-  otp.value = "";
-};
-
-const fillInput = (value: string) => {
-  otp.value = value;
-};
 
 // Handle cases of backspace, delete, left arrow, right arrow
-const handleOnKeyDown = (event: KeyboardEvent, index: number) => {
+const handleKeydown = (index: number, event: KeyboardEvent) => {
   switch (event.keyCode) {
     case BACKSPACE:
       event.preventDefault();
-      changeCodeAtFocus("");
-      focusPrevInput();
+      // Do not move the focus when there's a value at last input
+      // This is to maintain consistent cursor location
+      if (index === props.count - 1 && code.value[index]) {
+        setCodeAt(index, '');
+      } else {
+        setCodeAt(index - 1, '');
+        focusPrevInput();
+      }
       break;
     case DELETE:
       event.preventDefault();
-      changeCodeAtFocus("");
+      setCodeAt(index, '');
       break;
     case LEFT_ARROW:
       event.preventDefault();
@@ -175,41 +177,13 @@ const handleOnKeyDown = (event: KeyboardEvent, index: number) => {
       event.preventDefault();
       focusNextInput();
       break;
-    default:
-      focusOrder(index);
-      break;
   }
 };
-
-/**
- *
- * @param currentIndex - index of the input
- * @description - This function is used to focus the input in the order of the input index
- *
- * @example
- * 1. If the user is entering the OTP in the order of the input index, then the input will be focused in the order of the input index
- * 2. If the user is entering the OTP in the reverse order of the input index, then the input will be focused in the reverse order of the input index
- */
-const focusOrder = (currentIndex: number) => {
-  if (props.shouldFocusOrder) {
-    setTimeout(() => {
-      if (currentIndex >= otp.value.length) {
-        focusInput(otp.value.length);
-        setOtpAt(currentIndex, "");
-      }
-    }, 100);
-  }
-};
-
-defineExpose({
-  clearInput,
-  fillInput,
-});
 </script>
 
 <template>
-  <div style="display: flex" class="otp-input-container">
-    <!--    To turn off autocomplete when otp-input is password-->
+  <div>
+    <!-- To turn off autocomplete when input-type is password -->
     <input
       v-if="inputType === 'password'"
       autocomplete="off"
@@ -217,27 +191,30 @@ defineExpose({
       type="text"
       style="display: none"
     />
-    <SingleOtpInput
-      v-for="(_, i) in numInputs"
+    <div
+      v-for="(_, i) in count"
       :key="i"
-      :focus="activeInput === i"
-      :value="otp[i]"
-      :separator="separator"
-      :input-type="inputType"
-      :inputmode="inputmode"
-      :input-classes="inputClasses"
-      :conditionalClass="conditionalClass?.[i]"
-      :is-last-child="i === numInputs - 1"
-      :should-auto-focus="shouldAutoFocus"
-      :placeholder="placeholder?.[i]"
-      :is-disabled="isDisabled"
-      @on-change="handleOnChange"
-      @on-keydown="handleOnKeyDown($event, i)"
-      @on-paste="handleOnPaste"
-      @on-focus="handleOnFocus(i)"
-      @on-blur="handleOnBlur"
-    />
+      style="display: flex; align-items: center"
+    >
+      <SingleOtpInput
+        :focus="activeInput === i"
+        :value="code[i]"
+        :separator="separator"
+        :input-type="inputType"
+        :inputmode="inputmode"
+        :class="[...(inputClass ? [inputClass] : []), ...(conditionalClass?.[i] ? [conditionalClass?.[i]] : [])]"
+        :last-child="i === count - 1"
+        :placeholder="placeholder?.[i]"
+        :disabled="disabled"
+        @update:value="(value) => handleValueUpdate(i, value)"
+        @keydown="(event) => handleKeydown(i, event)"
+        @paste="(event) => handlePaste(i, event)"
+        @focus="handleFocus(i)"
+        @blur="handleBlur"
+      />
+      <span v-if="separator && i !== count - 1">
+        <span>{{ separator }}</span>
+      </span>
+    </div>
   </div>
 </template>
-
-<style scoped></style>
