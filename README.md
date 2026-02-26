@@ -1,6 +1,6 @@
 # vue3-otp-input
 
-> Vue 3 OTP Input is a 5.0 KB fully customizable OTP (one-time password) input component for OTPs, transaction pins, and passwords built with Vue 3.x and Vue Composition API..
+> Vue 3 OTP Input is a 5.0 KB fully customizable OTP (one-time password) input component for OTPs, transaction pins, and passwords built with Vue 3.x and Vue Composition API.
 
 
 ## Documentation
@@ -39,31 +39,27 @@ OR
 
 ```ts
 <script setup lang="ts">
-import { ref } from "vue";
-import VOtpInput from "vue3-otp-input";
+import { ref } from 'vue';
+import VOtpInput from 'vue3-otp-input';
 
-const otpInput = ref<InstanceType<typeof VOtpInput> | null>(null);
-const bindModal = ref("");
+const bindValue = ref<string[]>([]);
 
-const handleOnComplete = (value: string) => {
-  console.log("OTP completed: ", value);
+const handleComplete = (value: string) => {
+  console.log('OTP completed: ', value);
 };
 
-const handleOnChange = (value: string) => {
-  console.log("OTP changed: ", value);
+const handleChange = (value: string) => {
+  console.log('OTP changed: ', value);
 };
 
-const clearInput = () => {
-  otpInput.value?.clearInput();
+const clear = () => {
+  bindValue.value = [];
 };
 
-const fillInput = (value: string) => {
-  console.log(value);
-  otpInput.value?.fillInput(value);
+const fill = (value: string) => {
+  bindValue.value = value.split('');
 };
 </script>
-
-
 ```
 
 ### 1/3. Register as a Vue component globally
@@ -86,23 +82,22 @@ app.component('v-otp-input', VOtpInput).mount('#app')
 ```html
 <template>
     <div style="display: flex; flex-direction: row">
-      <v-otp-input
-        ref="otpInput"
-        input-classes="otp-input"
-        :conditionalClass="['one', 'two', 'three', 'four']"
-        separator="-"
-        inputType="letter-numeric"
-        :num-inputs="4"
+      <VOtpInput
         v-model:value="bindValue"
-        :should-auto-focus="true"
-        :should-focus-order="true"
-        @on-change="handleOnChange"
-        @on-complete="handleOnComplete"
+        input-class="otp-input"
+        :conditional-class="['one', 'two', 'three', 'four']"
+        separator="-"
+        input-type="letter-numeric"
+        :count="4"
+        auto-focus
+        force-ordering
         :placeholder="['*', '*', '*', '*']"
+        @change="handleChange"
+        @complete="handleComplete"
       />
     </div>
-    <button @click="clearInput()">Clear Input</button>
-    <button @click="fillInput('2929')">Fill Input</button>
+    <button @click="clear()">Clear Input</button>
+    <button @click="fill('2929')">Fill Input</button>
 </template>
 ```
 
@@ -149,99 +144,82 @@ input::placeholder {
     <th>Default</th>
     <th>Description</th>
   </tr>
-    <tr>
+  <tr>
     <td>value</td>
-    <td>string</td>
+    <td>string[]</td>
     <td>false</td>
-    <td>""</td>
-    <td>v-modal:value for bind dynamic value</td>
+    <td>[]</td>
+    <td>v-model:value for two-way binding. Each element represents one input's value.</td>
   </tr>
   <tr>
-    <td>num-inputs</td>
+    <td>count</td>
     <td>number</td>
-    <td><strong>true</strong></td>
+    <td>false</td>
     <td>4</td>
     <td>Number of OTP inputs to be rendered.</td>
   </tr>
   <tr>
     <td>separator</td>
-    <td>component<br></td>
+    <td>string</td>
     <td>false</td>
-    <td></td>
-    <td>Provide a custom separator between inputs by passing a component. For instance, <code>&lt;span&gt;-&lt;/span&gt;</code> would add <code>-</code> between each input</td>
+    <td>""</td>
+    <td>Provide a custom separator between inputs. For instance, <code>separator="-"</code> would add <code>-</code> between each input.</td>
   </tr>
   <tr>
-    <td>input-classes</td>
-    <td>className (string)</td>
+    <td>input-class</td>
+    <td>string | string[]</td>
     <td>false</td>
-    <td>none</td>
+    <td>""</td>
     <td>Style applied or class passed to each input.</td>
   </tr>
   <tr>
       <td>input-type</td>
       <td>string</td>
       <td>false</td>
-      <td>"tel"</td>
+      <td>"letter-numeric"</td>
       <td>Input type. Optional value: "password", "number", "tel", "letter-numeric".</td>
   </tr>
   <tr>
       <td>inputmode</td>
       <td>string</td>
       <td>false</td>
-      <td>"numeric"</td>
-      <td>This allows a browser to display an appropriate virtual keyboard. Optional value: "numeric", "text", "tel". [Learn More](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/inputmode)</td>
+      <td>"text"</td>
+      <td>This allows a browser to display an appropriate virtual keyboard. Optional value: "numeric", "text", "tel". <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/inputmode">Learn More</a></td>
   </tr>
   <tr>
-    <td>should-auto-focus</td>
+    <td>auto-focus</td>
     <td>boolean</td>
     <td>false</td>
     <td>false</td>
-    <td>Auto focuses input on inital page load.</td>
+    <td>Auto focuses input on initial page load.</td>
   </tr>
   <tr>
-    <td>should-focus-order</td>
+    <td>force-ordering</td>
     <td>boolean</td>
     <td>false</td>
     <td>false</td>
-    <td>Auto correct the input order. See https://github.com/ejirocodes/vue3-otp-input/pull/39</td>
+    <td>Force the user to fill inputs in order, preventing skipping ahead.</td>
   </tr>
   <tr>
     <td>placeholder</td>
-    <td>array</td>
+    <td>string[]</td>
     <td>false</td>
     <td>[]</td>
-    <td>Specify an expected value for each input. Example: <code>:placeholder="['*', '*', '*', '*']"</code>. The length of this array should be equal to <code>num-inputs</code>.</td>
+    <td>Specify an expected value for each input. Example: <code>:placeholder="['*', '*', '*', '*']"</code>. The length of this array should be equal to <code>count</code>.</td>
   </tr>
   <tr>
-    <td>conditionalClass</td>
-    <td>array</td>
+    <td>conditional-class</td>
+    <td>string[]</td>
     <td>false</td>
     <td>[]</td>
-    <td> Specify a class to be applied to each input based on the value of the input. Example: <code>:conditionalClass="['one', 'two', 'three', 'four']"</code>. The length of this array should be equal to <code>num-inputs</code>.</td>
+    <td>Specify a class to be applied to each input based on its index. Example: <code>:conditional-class="['one', 'two', 'three', 'four']"</code>. The length of this array should be equal to <code>count</code>.</td>
   </tr>
   <tr>
-    <td>is-disabled</td>
+    <td>disabled</td>
     <td>boolean</td>
     <td>false</td>
     <td>false</td>
     <td>Disables all the input fields.</td>
-  </tr>
-</table>
-
-## 🤺 Methods
-
-<table>
-  <tr>
-    <th>Name<br></th>
-    <th>Description</th>
-  </tr>
-  <tr>
-     <td>clearInput()</td>
-     <td>Use with ref for clearing all otp inputs, see code example section.</td>
-  </tr>
-    <tr>
-     <td>fillInput()</td>
-     <td>Use with ref for fill otp inputs. The value should be same length as `numInputs` length. See code example section.</td>
   </tr>
 </table>
 
@@ -253,14 +231,16 @@ input::placeholder {
     <th>Description</th>
   </tr>
   <tr>
-     <td>on-change</td>
-     <td>Return OTP code was changing when we made a change in inputs.</td>
+     <td>change</td>
+     <td>Emitted when the OTP value changes. Returns the joined OTP string.</td>
     </tr>
   <tr>
-    <td>on-complete</td>
-    <td>Return OTP code typed in inputs.</td>
+    <td>complete</td>
+    <td>Emitted when all inputs are filled. Returns the joined OTP string.</td>
   </tr>
 </table>
+
+> **Note:** `clearInput()` and `fillInput()` methods have been removed. Use `v-model:value` to clear or fill inputs directly (e.g., `bindValue = []` to clear, `bindValue = '1234'.split('')` to fill).
 
 ## 🤟🏽 License
 
