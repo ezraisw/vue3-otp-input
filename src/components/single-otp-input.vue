@@ -8,6 +8,7 @@ type Props = {
   lastChild?: boolean;
   replace?: boolean;
   placeholder?: string;
+  fakeDisabled?: boolean;
   disabled?: boolean;
 };
 
@@ -18,6 +19,7 @@ const props = withDefaults(defineProps<Props>(), {
   lastChild: false,
   replace: false,
   placeholder: '',
+  fakeDisabled: false,
   disabled: false,
 });
 
@@ -36,6 +38,12 @@ const handleChange = (event: Event) => {
   const inputEvent = event as InputEvent;
   const inputElement = event.target as HTMLInputElement;
   const newValue = inputElement.value;
+
+  // If fake disabled, do not allow any changes
+  if (props.fakeDisabled) {
+    inputElement.value = value.value;
+    return;
+  }
 
   // Multi character insertion means that it is an autofill
   // E.g., if input was "4" and user typed "5", insertedData is "5".

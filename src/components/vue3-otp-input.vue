@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, ref, watchEffect } from 'vue';
 import SingleOtpInput from './single-otp-input.vue';
 
 type Props = {
@@ -34,6 +34,8 @@ const emit = defineEmits<{
 }>();
 
 const code = defineModel<string[]>('value', { default: [] });
+
+const complete = computed(() => code.value.length > 0 && code.value.length === props.count && code.value.every((c) => !!c));
 
 const setCodeAt = (index: number, c: string) => {
   if (index < 0 && index >= code.value.length) {
@@ -70,7 +72,7 @@ watchEffect(() => {
   emit('change', code.value.join(''));
 
   // The input is complete if every slot is filled and the length is correct
-  if (code.value.length > 0 && code.value.length === props.count && code.value.every((c) => !!c)) {
+  if (complete.value) {
     emit('complete', code.value.join(''));
   }
 
@@ -254,6 +256,7 @@ const handleKeydown = (index: number, event: KeyboardEvent) => {
         :last-child="i === count - 1"
         :replace="!continuous"
         :placeholder="placeholder?.[i]"
+        :fake-disabled="continuous && complete"
         :disabled="disabled"
         @update:value="(value) => handleValueUpdate(i, value)"
         @keydown="(event) => handleKeydown(i, event)"
