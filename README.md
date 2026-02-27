@@ -90,7 +90,7 @@ app.component('v-otp-input', VOtpInput).mount('#app')
         input-type="letter-numeric"
         :count="4"
         auto-focus
-        force-ordering
+        continuous
         :placeholder="['*', '*', '*', '*']"
         @change="handleChange"
         @complete="handleComplete"
@@ -194,11 +194,11 @@ input::placeholder {
     <td>Auto focuses input on initial page load.</td>
   </tr>
   <tr>
-    <td>force-ordering</td>
+    <td>continuous</td>
     <td>boolean</td>
     <td>false</td>
     <td>false</td>
-    <td>Force the user to fill inputs in order, preventing skipping ahead.</td>
+    <td>Makes the inputs behave like a single continuous text field: characters insert and shift rather than replacing in-place, Backspace/Delete shift remaining characters, and focus is constrained sequentially. See note below.</td>
   </tr>
   <tr>
     <td>placeholder</td>
@@ -241,6 +241,8 @@ input::placeholder {
 </table>
 
 > **Note:** `clearInput()` and `fillInput()` methods have been removed. Use `v-model:value` to clear or fill inputs directly (e.g., `bindValue = []` to clear, `bindValue = '1234'.split('')` to fill).
+
+> **About `continuous` mode:** This mode makes the OTP input behave more like a standard text field split across boxes — characters shift on insert and delete, and you cannot skip ahead to arbitrary inputs. However, this may feel unintuitive for OTP entry, where users typically expect each box to be an independent slot they can click and edit freely. Use this mode only if your UX specifically calls for sequential, typewriter-style input.
 
 ## 🤟🏽 License
 
