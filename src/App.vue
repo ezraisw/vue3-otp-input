@@ -37,7 +37,6 @@ const fill = () => {
       input-type="letter-numeric"
       :count="4"
       auto-focus
-      force-ordering
       :placeholder="['*', '*', '*', '*']"
       @change="handleChange"
       @complete="handleComplete"

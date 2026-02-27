@@ -2,12 +2,6 @@
 import { onMounted, ref, watchEffect } from 'vue';
 import SingleOtpInput from './single-otp-input.vue';
 
-// keyCode constants
-const BACKSPACE = 8;
-const LEFT_ARROW = 37;
-const RIGHT_ARROW = 39;
-const DELETE = 46;
-
 type Props = {
   count?: number;
   separator?: string;
@@ -16,7 +10,7 @@ type Props = {
   inputType?: 'number' | 'tel' | 'letter-numeric' | 'password';
   inputmode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
   autoFocus?: boolean;
-  forceOrdering?: boolean;
+  continuous?: boolean;
   placeholder?: string[];
   disabled?: boolean;
 };
@@ -29,7 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
   inputType: 'letter-numeric',
   inputmode: 'text',
   autoFocus: false,
-  forceOrdering: false,
+  continuous: false,
   disabled: false,
   placeholder: () => [],
 });
@@ -42,7 +36,7 @@ const emit = defineEmits<{
 const code = defineModel<string[]>('value', { default: [] });
 
 const setCodeAt = (index: number, c: string) => {
-  if (index < 0) {
+  if (index < 0 && index >= code.value.length) {
     return;
   }
   const newCode = [...code.value];
@@ -50,7 +44,27 @@ const setCodeAt = (index: number, c: string) => {
   code.value = newCode;
 };
 
-const activeInput = ref(-1);
+const insertCodeAt = (index: number, c: string) => {
+  if (index < 0 && index >= code.value.length) {
+    return;
+  }
+  const newCode = [...code.value];
+  newCode.splice(index, 0, c);
+  newCode.pop();
+  code.value = newCode;
+};
+
+const shiftCodeAt = (index: number) => {
+  if (index < 0 && index >= code.value.length) {
+    return;
+  }
+  const newCode = [...code.value];
+  newCode.splice(index, 1);
+  // Fill leftover
+  code.value = newCode.concat('');
+};
+
+const activeIndex = ref(-1);
 
 watchEffect(() => {
   emit('change', code.value.join(''));
@@ -75,40 +89,63 @@ watchEffect(() => {
 
 onMounted(() => {
   if (props.autoFocus) {
-    activeInput.value = 0;
+    activeIndex.value = 0;
   }
 });
 
 const handleFocus = (index: number) => {
-  if (props.forceOrdering) {
-    const firstEmptyIndex = code.value.findIndex((c) => !c);
-    if (firstEmptyIndex === -1) {
-      focusInput(props.count - 1);
-    } else {
-      focusInput(firstEmptyIndex);
-    }
+  const firstEmptyIndex = code.value.findIndex((c) => !c);
+  if (props.continuous && firstEmptyIndex !== -1) {
+    // Only the next empty input or the current input is focusable
+    focusInput(Math.min(firstEmptyIndex, index));
   } else {
+    // Every input is focusable
     focusInput(index);
   }
 };
 
 const handleBlur = () => {
-  activeInput.value = -1;
+  activeIndex.value = -1;
 };
 
 // Focus on input by index
-const focusInput = (input: number) => {
-  activeInput.value = Math.max(Math.min(props.count - 1, input), 0);
+const focusInput = (index: number) => {
+  if (activeIndex.value === index) {
+    return;
+  }
+  activeIndex.value = Math.max(Math.min(props.count - 1, index), 0);
 };
 
 // Focus on next input
 const focusNextInput = () => {
-  focusInput(activeInput.value + 1);
+  focusInput(activeIndex.value + 1);
 };
 
 // Focus on previous input
 const focusPrevInput = () => {
-  focusInput(activeInput.value - 1);
+  focusInput(activeIndex.value - 1);
+};
+
+const distributeMultiCharStringAt = (index: number, value: string) => {
+  let sanitizedValue = value;
+  // Remove non-numeric or non-alphanumeric characters depending on the input type
+  switch (props.inputType) {
+    case 'number':
+      sanitizedValue = sanitizedValue.replace(/[^\d]/g, '');
+      break;
+    case 'letter-numeric':
+      sanitizedValue = sanitizedValue.replace(/[^\w]/g, '');
+      break;
+  }
+
+  // Paste data from focused input onwards and clamp to the number of count
+  const codeWithPastedData = code.value.slice(0, index).concat(...sanitizedValue.split(''));
+  const slicedOtp = codeWithPastedData.slice(0, props.count);
+
+  code.value = slicedOtp;
+
+  // Move focus to the end of the newly inserted data
+  focusInput(slicedOtp.length);
 };
 
 // Handle pasted OTP
@@ -116,60 +153,76 @@ const handlePaste = (index: number, event: ClipboardEvent) => {
   event.preventDefault();
 
   // Clamp the pasted data length to at most the number of count
-  let pastedData = event.clipboardData?.getData('text/plain').substring(0, props.count - index);
+  const pastedData = event.clipboardData?.getData('text/plain').substring(0, props.count - index);
   if (pastedData === undefined) {
     return;
   }
 
-  // Remove non-numeric or non-alphanumeric characters depending on the input type
-  switch (props.inputType) {
-    case 'number':
-      pastedData = pastedData.replace(/[^\d]/g, '');
-      break;
-    case 'letter-numeric':
-      pastedData = pastedData.replace(/[^\w]/g, '');
-      break;
-  }
+  distributeMultiCharStringAt(index, pastedData);
+};
 
-  // Paste data from focused input onwards and clamp to the number of count
-  const codeWithPastedData = code.value.slice(0, index).concat(...pastedData.split(''));
-  const slicedOtp = codeWithPastedData.slice(0, props.count);
-
-  code.value = slicedOtp;
-
-  focusInput(slicedOtp.length);
+// Handle autofilled OTP (different from paste)
+const handleAutofill = (index: number, value: string) => {
+  distributeMultiCharStringAt(index, value);
 };
 
 const handleValueUpdate = (index: number, value: string) => {
-  setCodeAt(index, value);
+  if (props.continuous) {
+    // For continuous, since it is guaranteed to be filled left to right, we can check the last character
+    // Do not try to insert when it is filled
+    if (code.value[code.value.length - 1]) {
+      return;
+    }
+    insertCodeAt(index, value);
+  } else {
+    setCodeAt(index, value);
+  }
   // Only move to next input if we're not at the last input
-  if (activeInput.value < props.count - 1) {
+  if (activeIndex.value < props.count - 1) {
     focusNextInput();
   }
 };
 
 // Handle cases of backspace, delete, left arrow, right arrow
 const handleKeydown = (index: number, event: KeyboardEvent) => {
-  switch (event.keyCode) {
-    case BACKSPACE:
+  switch (event.key) {
+    case 'Backspace':
       event.preventDefault();
-      // Do not move the focus when there's value at the current input
-      if (code.value[index]) {
-        setCodeAt(index, '');
+      if (props.continuous) {
+        // Continuous input mimics normal continuous input behavior
+        // User cannot select fields to the right of the first empty field
+        // Backspace deletes the character BEHIND the cursor if the current field is empty
+        if (index === props.count - 1 && code.value[index]) {
+          // Do not move the focus when there's value at the current field
+          setCodeAt(index, '');
+        } else {
+          shiftCodeAt(code.value[index] ? index : index - 1);
+          focusPrevInput();
+        }
       } else {
-        setCodeAt(index - 1, '');
-        focusPrevInput();
+        if (code.value[index]) {
+          // Do not move the focus when there's value at the current field
+          setCodeAt(index, '');
+        } else {
+          setCodeAt(index - 1, '');
+          focusPrevInput();
+        }
       }
       break;
-    case DELETE:
+    case 'Delete':
       event.preventDefault();
-      setCodeAt(index, '');
+      if (props.continuous) {
+        // Shift left once but don't move the focus to mimic usual input behavior
+        shiftCodeAt(index);
+      } else {
+        setCodeAt(index, '');
+      }
       break;
-    case LEFT_ARROW:
+    case 'ArrowLeft':
       event.preventDefault();
       focusPrevInput();
       break;
-    case RIGHT_ARROW:
+    case 'ArrowRight':
       event.preventDefault();
       focusNextInput();
       break;
@@ -193,17 +246,19 @@ const handleKeydown = (index: number, event: KeyboardEvent) => {
       style="display: flex; align-items: center"
     >
       <SingleOtpInput
-        :focus="activeInput === i"
+        :focus="activeIndex === i"
         :value="code[i]"
         :input-type="inputType"
         :inputmode="inputmode"
         :class="[...(inputClass ? [inputClass] : []), ...(conditionalClass?.[i] ? [conditionalClass?.[i]] : [])]"
         :last-child="i === count - 1"
+        :replace="!continuous"
         :placeholder="placeholder?.[i]"
         :disabled="disabled"
         @update:value="(value) => handleValueUpdate(i, value)"
         @keydown="(event) => handleKeydown(i, event)"
         @paste="(event) => handlePaste(i, event)"
+        @autofill="(value) => handleAutofill(i, value)"
         @focus="handleFocus(i)"
         @blur="handleBlur"
       />

@@ -6,6 +6,7 @@ type Props = {
   inputmode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
   focus?: boolean;
   lastChild?: boolean;
+  replace?: boolean;
   placeholder?: string;
   disabled?: boolean;
 };
@@ -15,6 +16,7 @@ const props = withDefaults(defineProps<Props>(), {
   inputmode: 'numeric',
   focus: false,
   lastChild: false,
+  replace: false,
   placeholder: '',
   disabled: false,
 });
@@ -22,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   keydown: [event: KeyboardEvent];
   paste: [event: ClipboardEvent];
+  autofill: [value: string];
   focus: [];
   blur: [];
 }>();
@@ -29,17 +32,40 @@ const emit = defineEmits<{
 const value = defineModel<string>('value', { default: '' });
 const input = ref<HTMLInputElement | null>(null);
 
-const handleChange = (e: Event) => {
-  const newValue = (e.target as HTMLInputElement).value;
-  if (newValue && newValue.trim().length > 1) {
-    // This is a workaround for dealing IOS does not fire onPaste event from sms auto-populate
-    // The `:maxlength="lastChild ? 1 : undefined"` on the input is also needed for this workaround
-    (e as unknown as { clipboardData: { getData: () => string } }).clipboardData = {
-      getData: () => newValue.trim(),
-    };
-    emit('paste', e as ClipboardEvent);
+const handleChange = (event: Event) => {
+  const inputEvent = event as InputEvent;
+  const inputElement = event.target as HTMLInputElement;
+  const newValue = inputElement.value;
+
+  // Multi character insertion means that it is an autofill
+  // E.g., if input was "4" and user typed "5", insertedData is "5".
+  // E.g., if iOS autofilled "1234", insertedData is "1234".
+  const insertedValue = inputEvent.data;
+  if (insertedValue && insertedValue.length > 1) {
+    emit('autofill', insertedValue);
+    inputElement.value = value.value;
     return;
   }
+
+  // Fallback for older browsers where .data might be null,
+  // checking if the length jumped by more than 1 character.
+  if (!insertedValue && newValue.length - value.value.length > 1) {
+    emit('autofill', newValue.trim());
+    inputElement.value = value.value;
+    return;
+  }
+
+  // Accidental multi character insertion on the same input
+  if (newValue.length > 1) {
+    const usedValue = props.replace ? (insertedValue ?? newValue.slice(-1)) : newValue.charAt(0);
+
+    value.value = usedValue;
+    // Force DOM sync
+    inputElement.value = usedValue;
+    return;
+  }
+
+  // Normal case
   value.value = newValue;
 };
 
@@ -71,7 +97,9 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 };
 
-const handlePaste = (event: ClipboardEvent) => emit('paste', event);
+const handlePaste = (event: ClipboardEvent) => {
+  emit('paste', event);
+};
 
 const handleFocus = () => {
   // Select the value so it can be immediately deleted using Backspace/Delete
@@ -79,7 +107,9 @@ const handleFocus = () => {
   emit('focus');
 };
 
-const handleBlur = () => emit('blur');
+const handleBlur = () => {
+  emit('blur');
+};
 
 const actualInputType = computed(() => (['letter-numeric', 'number'].includes(props.inputType) ? 'text' : props.inputType));
 
