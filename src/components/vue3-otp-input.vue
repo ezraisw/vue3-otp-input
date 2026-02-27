@@ -199,7 +199,6 @@ const handleKeydown = (index: number, event: KeyboardEvent) => {
       <SingleOtpInput
         :focus="activeInput === i"
         :value="code[i]"
-        :separator="separator"
         :input-type="inputType"
         :inputmode="inputmode"
         :class="[...(inputClass ? [inputClass] : []), ...(conditionalClass?.[i] ? [conditionalClass?.[i]] : [])]"
