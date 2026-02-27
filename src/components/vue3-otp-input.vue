@@ -55,23 +55,20 @@ const activeInput = ref(-1);
 watchEffect(() => {
   emit('change', code.value.join(''));
 
-  // Check if every slot is filled
-  if (code.value.every((c) => !!c)) {
+  // The input is complete if every slot is filled and the length is correct
+  if (code.value.length > 0 && code.value.length === props.count && code.value.every((c) => !!c)) {
     emit('complete', code.value.join(''));
   }
-});
 
-// Separate the watchEffect to keep clear dependency
-watchEffect(() => {
-  if (code.value.length === props.count) {
-    return;
+  // Sanitize bad string elements
+  if (code.value.some((c) => c.length > 1)) {
+    code.value = code.value.map((c) => c.substring(0, 1));
   }
 
-  // If bad code array is set
-  // Keep the array length
+  // Sanitize bad array length
   if (code.value.length < props.count) {
     code.value = code.value.concat(...new Array<string>(props.count - code.value.length).fill(''));
-  } else {
+  } else if (code.value.length > props.count) {
     code.value = code.value.slice(0, props.count);
   }
 });
@@ -156,9 +153,8 @@ const handleKeydown = (index: number, event: KeyboardEvent) => {
   switch (event.keyCode) {
     case BACKSPACE:
       event.preventDefault();
-      // Do not move the focus when there's a value at last input
-      // This is to maintain consistent cursor location
-      if (index === props.count - 1 && code.value[index]) {
+      // Do not move the focus when there's value at the current input
+      if (code.value[index]) {
         setCodeAt(index, '');
       } else {
         setCodeAt(index - 1, '');
