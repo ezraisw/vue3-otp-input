@@ -43,31 +43,31 @@ const handleChange = (e: Event) => {
   value.value = newValue;
 };
 
-const isCodeLetter = (charCode: number) => charCode >= 65 && charCode <= 90;
-const isCodeNumeric = (charCode: number) => (charCode >= 48 && charCode <= 57) || (charCode >= 96 && charCode <= 105);
+const allowedFunctionalKeys = [
+  'Backspace',
+  'Tab',
+  'Enter',
+  'ArrowLeft',
+  'ArrowRight',
+  'Delete',
+];
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (props.disabled) {
     event.preventDefault();
-  }
-
-  // Only allow characters 0-9, DEL, Backspace, Enter, Right and Left Arrows, and pasting
-  const keyEvent = event || window.event;
-  const charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
-  // Allow any input on iOS
-  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-    emit('keydown', event);
     return;
   }
 
-  if (
-    isCodeNumeric(charCode) ||
-    (props.inputType === 'letter-numeric' && isCodeLetter(charCode)) ||
-    [8, 9, 13, 37, 39, 46, 86].includes(charCode)
-  ) {
+  // Only allow characters 0-9, DEL, Backspace, Enter, Right and Left Arrows, and pasting
+  const isNumber = /^[0-9]$/.test(event.key);
+  const isLetter = /^[a-zA-Z]$/.test(event.key);
+  const isModifier = event.ctrlKey || event.metaKey;
+  const isAllowedType = isNumber || (props.inputType === 'letter-numeric' && isLetter);
+
+  if (isAllowedType || allowedFunctionalKeys.includes(event.key) || isModifier) {
     emit('keydown', event);
   } else {
-    keyEvent.preventDefault();
+    event.preventDefault();
   }
 };
 
